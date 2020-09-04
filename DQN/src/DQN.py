@@ -20,10 +20,10 @@ preprocess = transforms.Compose([
 def preprocessing(frame):
     frame = Image.fromarray(frame)
     frame = preprocess(frame)
-    return np.asarray(frame, dtype='float64')
+    return np.asarray(frame, dtype='float64')/255
 
 class Paras(object):
-    learning_rate = 0.01
+    learning_rate = 0.001
     batch_size = 32
     gamma = 0.99
     buffer_capacity = 10000
@@ -32,9 +32,9 @@ class Paras(object):
 
     init_epsilon = 1
     final_epsilon = 0.1
-    epsilon_decay = 1/100000
+    epsilon_decay = 1/10000
 
-    target_update_freq = 100
+    target_update_freq = 1000
 
     npixel = 84*84
     lpixel = 84
@@ -98,7 +98,7 @@ class DQN():
         self.recent_cur = 0
         self.recent_cnt = 0
 
-        self.optimizer = torch.optim.SGD(self.eval_net.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.SGD(self.eval_net.parameters(), lr=self.lr, momentum=0.9, weight_decay=0.1)
         self.loss_func = nn.MSELoss("mean")
 
     def choose_action(self, frame):
@@ -165,6 +165,7 @@ class DQN():
 
         self.optimizer.zero_grad()
         loss.backward()
+
         self.optimizer.step()
 
     def clear_recent(self):
@@ -173,38 +174,47 @@ class DQN():
 
 
 def main():
-    dqn = DQN()
-    episodes = 400
-    reward_list = []
-    plt.ion()
-    print("Start training...")
-    for i in range(episodes):
-        frame = Env.env.reset()
-        frame = preprocessing(frame)
-        # plt.imshow(frame)
-        total_reward = 0
-        while True:
-            # Env.env.render()
-            action = dqn.choose_action(frame)
-            next_frame, reward, done, _ = Env.env.step(action)
-            next_frame = preprocessing(next_frame)
+    try:
+        dqn = DQN()
+        episodes = 1000
+        reward_list = []
+        # plt.ion()
+        print("Start training...")
+        for i in range(episodes):
+            frame = Env.env.reset()
+            frame = preprocessing(frame)
+            # plt.imshow(frame)
+            # plt.show()
+            total_reward = 0
+            while True:
+                # Env.env.render()
+                action = dqn.choose_action(frame)
+                next_frame, reward, done, _ = Env.env.step(action)
+                # plt.imshow(frame)
+                # plt.show()
+                next_frame = preprocessing(next_frame)
 
-            dqn.store_transition(frame, action, reward, next_frame)
+                dqn.store_transition(frame, action, reward, next_frame)
 
-            total_reward += reward
-            if dqn.buffer_cnt >= Paras.buffer_capacity:
-                dqn.learn()
+                total_reward += reward
+                if dqn.buffer_cnt >= Paras.buffer_capacity:
+                    dqn.learn()
+                
+                if _["ale.lives"] < 3:
+                    print("finish episode {}, total reward is {}.".format(i, total_reward))
+                    # assert False
+                    break
+                
+                frame = copy.deepcopy(next_frame)
+                # plt.pause(0.001)
+                # plt.clf()
             
-            if done:
-                print("finish episode {}, total reward is {}.".format(i, total_reward))
-                break
-            
-            frame = copy.deepcopy(next_frame)
-        
-        reward_list.append(total_reward)
+            reward_list.append(total_reward)
+    except:
+        print(reward_list)
     
-    plt.plot(reward_list)
-    plt.show()
+    # plt.plot(reward_list)
+    # plt.show()
 
 if __name__ == "__main__":
     main()
@@ -248,4 +258,4 @@ if __name__ == "__main__":
 if __name__ == "__main__": 
     pass
 
-    plt.imshow()
+    # plt.imshow()
